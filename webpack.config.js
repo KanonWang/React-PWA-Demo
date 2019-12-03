@@ -1,6 +1,7 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
+const workboxPlugin = require('workbox-webpack-plugin');
 
 const config = {
     entry: './src/index.js',
@@ -54,6 +55,11 @@ const config = {
         new CleanWebpackPlugin(),
         new HtmlWebpackPlugin({
             template: path.resolve(__dirname, 'src/index.html')
+        }),
+        new workboxPlugin.GenerateSW({
+            swDest: 'sw.js',
+            clientsClaim: true,
+            skipWaiting: true,
         })
     ],
     devServer: {
