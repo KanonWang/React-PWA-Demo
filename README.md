@@ -49,11 +49,74 @@ Service Worker 让缓存做到优雅和极致，使站点可以在离线情况�
 4. 异步实现：内部大都是通过 Promise 实现
 5. 一旦被 install，就永远存在，除非被手动 unregister 
 
+#### Service Worker 生命周期
+Service Worker 的生命周期完全独立于网页。
+
+1. 注册：在主线程中注册位于`/sw.js`的 Service Worker。浏览器会在后台下载所需文件，解析并执行 Service Worker。如果这期间出现任何错误，Service Worker 就不会被安装，下一次会进行重试。
+```javascript
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/sw.js', {scope: './'}).then(function(registration) {
+            // Registration was successful
+            console.log('ServiceWorker registration successful with scope: ', registration.scope);
+        }, function(err) {
+            // registration failed :(
+            console.log('ServiceWorker registration failed: ', err);
+        });
+    });
+}
+```
+如果注册成功，Service Worker 就在`ServiceWorkerGlobalScope`环境中运行，这是一个特殊类型的worker上下文环境。自此，Service Worker 可以处理事件了。
+
+2. 安装：注册成功后，Service Worker 首先会收到安装事件。我们可以打开缓存，缓存文件，确认所需资源是否已经缓存。
+```javascript
+var CACHE_NAME = 'my-site-cache-v1';
+var urlsToCache = [
+    '/',
+    '/styles/main.css',
+    '/script/main.js'
+];
+
+self.addEventListener('install', function(event) {
+    // Perform install steps
+    event.waitUntil(
+        caches.open(CACHE_NAME)
+            .then(function(cache) {
+                console.log('Opened cache');
+                return cache.addAll(urlsToCache);
+            })
+    );
+});
+```
+3. 激活：安装成功后，Service Worker 会收到激活事件。一般在此对旧缓存进行清理。
+```javascript
+self.addEventListener('activate', function(event) {
+    // New caches
+    var cacheWhitelist = ['pages-cache-v1', 'blog-posts-cache-v1'];
+    //Delete old caches 
+    event.waitUntil(
+        caches.keys().then(function(cacheNames) {
+            return Promise.all(
+                cacheNames.map(function(cacheName) {
+                    if (cacheWhitelist.indexOf(cacheName) === -1) {
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        })
+    );
+});
+```
+
+4. 重新加载`redundant`：Service Worker 现在可以对其作用域内所有页面进行控制，但仅注册成功后的打开的页面。也就是说，页面起始于有没有 Service Worker，且在页面的接下来生命周期内维持这个状态。所以，页面不得不重新加载以让 Service Worker 获得完全的控制。
+
 #### Service Worker浏览器支持：
 [Can I use service worker?](https://caniuse.com/#search=service%20worker)
 
 ### Workbox
 Google Chrome 团队推出的一套 Web App 静态资源和请求结果的本地存储的解决方案，包含一些 Js 库和构建工具。
+
+#### workbox-webpack-plugin 插件
 
 ## Notification API
 Notifications API 是用来向用户展示通知消息的接口，需要获取用户同意，即使Web App并没有在浏览器打开。
@@ -61,11 +124,6 @@ Notifications API 是用来向用户展示通知消息的接口，需要获取�
 ### Service Worker给用户推送通知的🌰
 ```javascript
 window.addEventListener('load', () => {
-    if (!('serviceWorker' in navigator)) {
-        // Service Worker isn't supported on this browser, disable or hide UI.
-        return;
-    }
-
     if (!('PushManager' in window)) {
         // Push isn't supported on this browser, disable or hide UI.
         return;
@@ -155,10 +213,12 @@ function execute() {
 ## 参考资料
 
 1. [LAVAS PWA文档](https://lavas.baidu.com/pwa)
-2. [Workbox](https://developers.google.com/web/tools/workbox)
-3. [下一代 Web 应用模型 — Progressive Web App](https://zhuanlan.zhihu.com/p/25167289)
-4. [Service Workers: an Introduction](https://developers.google.com/web/fundamentals/primers/service-workers?hl=zh-CN)
+2. [下一代 Web 应用模型 — Progressive Web App](https://zhuanlan.zhihu.com/p/25167289)
+3. [Service Workers: an Introduction](https://developers.google.com/web/fundamentals/primers/service-workers?hl=zh-CN)
+4. [使用 Service Workers](https://developer.mozilla.org/zh-CN/docs/Web/API/Service_Worker_API/Using_Service_Workers)
 5. [What’s new on iOS 12.2 for Progressive Web Apps](https://medium.com/@firt/whats-new-on-ios-12-2-for-progressive-web-apps-75c348f8e945)
 6. [Notifications API](https://developer.mozilla.org/en-US/docs/Web/API/Notifications_API)
 7. [Displaying a Notification](https://developers.google.com/web/fundamentals/push-notifications/display-a-notification)
 8. [Workbox guides](https://developers.google.com/web/tools/workbox/guides/get-started)
+9. [Webpack - Progressive Web Application](https://webpack.js.org/guides/progressive-web-application/#root)
+10. [Get Started With Workbox For Webpack](https://developers.google.com/web/tools/workbox/guides/codelabs/webpack)
